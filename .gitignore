@@ -1,0 +1,29 @@
+# Binaries
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go tool output
+coverage.out
+
+# Build artifacts (nama binary proyek)
+kasir
+kasir.exe
+
+# Dependency vendor (opsional)
+vendor/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Environment / logs
+.env
+*.log
