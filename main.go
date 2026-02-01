@@ -1,11 +1,19 @@
 package main
 
 import (
+	"category-api/database"
+	"category-api/handlers"
+	"category-api/repositories"
+	"category-api/services"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 type Categories struct {
@@ -19,6 +27,29 @@ var categories = []Categories{
 	{ID: 1, Nama: "Indomie Godog", Harga: 3500, Stok: 10},
 	{ID: 2, Nama: "Vit 1000ml", Harga: 3000, Stok: 40},
 	{ID: 3, Nama: "kecap", Harga: 12000, Stok: 20},
+}
+
+type Config struct {
+	Port   string `mapstructure:"PORT"`
+	DBConn string `mapstructure:"DB_CONN"`
+}
+
+func loadConfig() (Config, error) {
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if _, err := os.Stat(".env"); err == nil {
+		viper.SetConfigFile(".env")
+		if err := viper.ReadInConfig(); err != nil {
+			return Config{}, err
+		}
+	}
+
+	cfg := Config{
+		Port:   viper.GetString("PORT"),
+		DBConn: viper.GetString("DB_CONN"),
+	}
+	return cfg, nil
 }
 
 // test 2
@@ -110,6 +141,29 @@ func deleteCategories(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	config, err := loadConfig()
+	if err != nil {
+		fmt.Println("gagal load config", err)
+		return
+	}
+
+	// Setup database
+	db, err := database.InitDB(config.DBConn)
+	if err != nil {
+		log.Fatal("Failed to initialize database:", err)
+	}
+	defer db.Close()
+
+	// create repo/service/handler after db is available
+	productRepo := repositories.NewProductRepository(db)
+	productService := services.NewProductService(productRepo)
+	productHandler := handlers.NewProductHandler(productService)
+
+	// GET localhost:8080/api/produk/{id}
+	// PUT localhost:8080/api/produk/{id}
+	// DELETE localhost:8080/api/produk/{id}
+	http.HandleFunc("/api/produk", productHandler.HandleProducts)
+	http.HandleFunc("/api/produk/", productHandler.HandleProductByID)
 	// GET localhost:8080/api/categories/{id}
 	// PUT localhost:8080/api/categories/{id}
 	// DELETE localhost:8080/api/categories/{id}
@@ -160,7 +214,11 @@ func main() {
 
 	fmt.Println("Hello, World!")
 	// start HTTP server
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println("Server error:", err)
+	addr := "0.0.0.0:" + config.Port
+	fmt.Println("Server running di", addr)
+
+	err = http.ListenAndServe(addr, nil)
+	if err != nil {
+		fmt.Println("gagal running server", err)
 	}
 }
